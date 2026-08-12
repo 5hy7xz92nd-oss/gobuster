@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // PATTERN is the pattern for wordlist replacements in pattern file
@@ -30,6 +32,7 @@ type Gobuster struct {
 	Logger   *Logger
 	plugin   GobusterPlugin
 	Progress *Progress
+	limiter  *rate.Limiter
 }
 
 type Guess struct {
@@ -51,6 +54,10 @@ func NewGobuster(opts *Options, plugin GobusterPlugin, logger *Logger) (*Gobuste
 	g.Logger = logger
 	g.Progress = NewProgress()
 
+	if opts.RateLimit > 0 {
+		g.limiter = rate.NewLimiter(rate.Limit(opts.RateLimit), opts.RateLimit)
+	}
+
 	return &g, nil
 }
 
@@ -67,6 +74,12 @@ func (g *Gobuster) worker(ctx context.Context, guessChan <-chan *Guess, successC
 		case <-ctx.Done():
 			return
 		case guess := <-guessChan:
+			// Apply rate limiting before making the request
+			if g.limiter != nil {
+				if err := g.limiter.Wait(ctx); err != nil {
+					return
+				}
+			}
 
 			// Mode-specific processing
 			res, err := g.plugin.ProcessWord(ctx, guess.word, g.Progress)
@@ -88,9 +101,11 @@ func (g *Gobuster) worker(ctx context.Context, guessChan <-chan *Guess, successC
 
 			g.Progress.incrementRequests()
 
-			select {
-			case <-ctx.Done():
-			case <-time.After(g.Opts.Delay):
+			if g.limiter == nil {
+				select {
+				case <-ctx.Done():
+				case <-time.After(g.Opts.Delay):
+				}
 			}
 		}
 	}
@@ -123,6 +138,11 @@ func (g *Gobuster) feeder(ctx context.Context, guessChan chan<- *Guess, words []
 func (g *Gobuster) feedWordlist(ctx context.Context, guessChan chan<- *Guess, wordlist *Wordlist, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	var seen map[string]struct{}
+	if g.Opts.NoDuplicates {
+		seen = make(map[string]struct{})
+	}
+
 	for wordlist.scanner.Scan() {
 		// Prioritize stopping when the context is done
 		select {
@@ -144,6 +164,14 @@ func (g *Gobuster) feedWordlist(ctx context.Context, guessChan chan<- *Guess, wo
 			// Skip empty lines removing expected work
 			g.Progress.IncrementTotalRequests(-1 * wordlist.guessesPerLine)
 			continue
+		}
+
+		if seen != nil {
+			if _, duplicate := seen[word]; duplicate {
+				g.Progress.IncrementTotalRequests(-1 * wordlist.guessesPerLine)
+				continue
+			}
+			seen[word] = struct{}{}
 		}
 
 		if len(g.Opts.Patterns) > 0 {

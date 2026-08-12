@@ -219,6 +219,8 @@ func GlobalOptions() []cli.Flag {
 		&cli.IntFlag{Name: "threads", Aliases: []string{"t"}, Value: 10, Usage: "Number of concurrent threads"},
 		&cli.IntFlag{Name: "wordlist-offset", Aliases: []string{"wo"}, Value: 0, Usage: "Resume from a given position in the wordlist"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output file to write results to (defaults to stdout)"},
+		&cli.BoolFlag{Name: "output-append", Aliases: []string{"oa"}, Value: false, Usage: "Append to output file instead of overwriting it"},
+		&cli.StringFlag{Name: "output-format", Aliases: []string{"of"}, Value: "text", Usage: "Output format. One of: text, json"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Value: false, Usage: "Don't print the banner and other noise"},
 		&cli.BoolFlag{Name: "no-progress", Aliases: []string{"np"}, Value: false, Usage: "Don't display progress"},
 		&cli.BoolFlag{Name: "no-error", Aliases: []string{"ne"}, Value: false, Usage: "Don't display errors"},
@@ -226,6 +228,8 @@ func GlobalOptions() []cli.Flag {
 		&cli.StringFlag{Name: "discover-pattern", Aliases: []string{"pd"}, Usage: "File containing replacement patterns applied to successful guesses"},
 		&cli.BoolFlag{Name: "no-color", Aliases: []string{"nc"}, Value: false, Usage: "Disable color output"},
 		&cli.BoolFlag{Name: "debug", Value: false, Usage: "enable debug output"},
+		&cli.IntFlag{Name: "rate-limit", Aliases: []string{"rl"}, Value: 0, Usage: "Rate limit in requests per second (0 = unlimited, use --delay for per-thread delay instead)"},
+		&cli.BoolFlag{Name: "no-duplicates", Aliases: []string{"nd"}, Value: false, Usage: "Deduplicate wordlist entries to avoid sending duplicate requests"},
 	}
 }
 
@@ -297,6 +301,25 @@ func ParseGlobalOptions(c *cli.Context) (libgobuster.Options, error) {
 	}
 
 	opts.Debug = c.Bool("debug")
+
+	opts.OutputAppend = c.Bool("output-append")
+
+	outputFormat, err := libgobuster.ParseOutputFormat(c.String("output-format"))
+	if err != nil {
+		return opts, err
+	}
+	opts.OutputFormat = outputFormat
+
+	opts.RateLimit = c.Int("rate-limit")
+	if opts.RateLimit < 0 {
+		return opts, errors.New("rate-limit must be greater than or equal to 0")
+	}
+	if opts.RateLimit > 0 && opts.Delay > 0 {
+		return opts, errors.New("rate-limit and delay are mutually exclusive, please use only one")
+	}
+
+	opts.NoDuplicates = c.Bool("no-duplicates")
+
 	return opts, nil
 }
 
