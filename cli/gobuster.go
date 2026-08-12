@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -26,28 +27,50 @@ func resultWorker(g *libgobuster.Gobuster, filename string, wg *sync.WaitGroup) 
 	var f *os.File
 	var err error
 	if filename != "" {
-		f, err = os.Create(filename)
+		flags := os.O_CREATE | os.O_WRONLY
+		if g.Opts.OutputAppend {
+			flags |= os.O_APPEND
+		} else {
+			flags |= os.O_TRUNC
+		}
+		f, err = os.OpenFile(filename, flags, 0o644)
 		if err != nil {
-			g.Logger.Fatalf("error on creating output file: %v", err)
+			g.Logger.Fatalf("error on opening output file: %v", err)
 		}
 		defer f.Close()
 	}
 
+	useJSON := g.Opts.OutputFormat == libgobuster.OutputFormatJSON
+
 	for r := range g.Progress.ResultChan {
-		s, err := r.ResultToString()
-		if err != nil {
-			g.Logger.Fatal(err)
+		var line string
+		if useJSON {
+			data, jsonErr := r.ResultToJSON()
+			if jsonErr != nil {
+				g.Logger.Fatal(jsonErr)
+			}
+			b, marshalErr := json.Marshal(data)
+			if marshalErr != nil {
+				g.Logger.Fatal(marshalErr)
+			}
+			line = string(b)
+		} else {
+			s, strErr := r.ResultToString()
+			if strErr != nil {
+				g.Logger.Fatal(strErr)
+			}
+			line = strings.TrimSpace(s)
 		}
-		if s != "" {
-			s = strings.TrimSpace(s)
+
+		if line != "" {
 			if g.Opts.NoProgress || g.Opts.Quiet {
-				_, _ = fmt.Printf("%s\n", s) // nolint forbidigo
+				_, _ = fmt.Printf("%s\n", line) // nolint forbidigo
 			} else {
 				// only print the clear line when progress output is enabled
-				_, _ = fmt.Printf("%s%s\n", TerminalClearLine, s) // nolint forbidigo
+				_, _ = fmt.Printf("%s%s\n", TerminalClearLine, line) // nolint forbidigo
 			}
 			if f != nil {
-				err = writeToFile(f, s)
+				err = writeToFile(f, line)
 				if err != nil {
 					g.Logger.Fatalf("error on writing output file: %v", err)
 				}

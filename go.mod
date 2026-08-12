@@ -1,6 +1,6 @@
 module github.com/OJ/gobuster/v3
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/fatih/color v1.18.0
@@ -9,6 +9,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.7
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/term v0.37.0
+	golang.org/x/time v0.15.0
 	software.sslmate.com/src/go-pkcs12 v0.6.0
 )
 

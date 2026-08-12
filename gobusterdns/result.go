@@ -18,6 +18,19 @@ type Result struct {
 	CNAME     string
 }
 
+// ResultToJSON returns a JSON-encodable representation of the result.
+func (r Result) ResultToJSON() (interface{}, error) {
+	ips := make([]string, len(r.IPs))
+	for i := range r.IPs {
+		ips[i] = r.IPs[i].String()
+	}
+	return map[string]interface{}{
+		"subdomain": r.Subdomain,
+		"ips":       ips,
+		"cname":     r.CNAME,
+	}, nil
+}
+
 // ResultToString converts the Result to its textual representation
 func (r Result) ResultToString() (string, error) {
 	buf := &bytes.Buffer{}

@@ -16,4 +16,7 @@ type GobusterPlugin interface {
 // Result is an interface for the Result object
 type Result interface {
 	ResultToString() (string, error)
+	// ResultToJSON returns the result as a JSON-encodable value (map or struct).
+	// It is used when --output-format=json is set.
+	ResultToJSON() (interface{}, error)
 }

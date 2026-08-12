@@ -2,6 +2,7 @@ package gobustergcs
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/fatih/color"
 )
@@ -13,6 +14,16 @@ type Result struct {
 	Found      bool
 	BucketName string
 	Status     string
+}
+
+// ResultToJSON returns a JSON-encodable representation of the result.
+func (r Result) ResultToJSON() (interface{}, error) {
+	return map[string]interface{}{
+		"found":       r.Found,
+		"bucket_name": r.BucketName,
+		"status":      r.Status,
+		"url":         fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o", r.BucketName),
+	}, nil
 }
 
 // ResultToString converts the Result to its textual representation

@@ -16,6 +16,15 @@ type Result struct {
 	ErrorMessage string
 }
 
+// ResultToJSON returns a JSON-encodable representation of the result.
+func (r Result) ResultToJSON() (interface{}, error) {
+	return map[string]interface{}{
+		"filename":      r.Filename,
+		"size":          r.Size,
+		"error_message": r.ErrorMessage,
+	}, nil
+}
+
 // ResultToString converts the Result to its textual representation
 func (r Result) ResultToString() (string, error) {
 	buf := &bytes.Buffer{}

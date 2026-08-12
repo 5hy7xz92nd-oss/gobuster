@@ -24,6 +24,17 @@ type Result struct {
 	Header     http.Header
 }
 
+// ResultToJSON returns a JSON-encodable representation of the result.
+func (r Result) ResultToJSON() (interface{}, error) {
+	location := r.Header.Get("Location")
+	return map[string]interface{}{
+		"vhost":       r.Vhost,
+		"status_code": r.StatusCode,
+		"size":        r.Size,
+		"location":    location,
+	}, nil
+}
+
 // ResultToString converts the Result to its textual representation
 func (r Result) ResultToString() (string, error) {
 	statusCodeColor := white
